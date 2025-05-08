@@ -18,52 +18,52 @@ func Routes(db *sql.DB, port string) {
 	adminService := service.NewAdminService(adminRepo, db)
 	adminController := controller.NewAdminController(adminService)
 
-	router.POST("/api/admin/daftar", adminController.SignUp)
-	router.POST("/api/admin/login", adminController.SignIn)
-	router.GET("/api/admin/:nik", adminController.FindByNik)
+	router.POST("/api/bendahara/admin/daftar", adminController.SignUp)
+	router.POST("/api/bendahara/admin/login", adminController.SignIn)
+	router.GET("/api/bendahara/admin/:nik", adminController.FindByNik)
 
 	//pemasukan
 	pemasukanRepo := repository.NewPemasukanRepo()
 	pemasukanService := service.NewPemasukanService(pemasukanRepo, db)
 	pemasukanController := controller.NewPemasukanController(pemasukanService)
 
-	router.POST("/api/pemasukan/add", pemasukanController.AddPemasukan)
-	router.PUT("/api/pemasukan/update/:id", pemasukanController.UpdatePemasukan)
-	router.GET("/api/pemasukan/getall", pemasukanController.GetPemasukan)
-	router.GET("/api/pemasukan/get/:id", pemasukanController.GetById)
-	router.DELETE("/api/pemasukan/delete/:id", pemasukanController.DeletePemasukan)
+	router.POST("/api/bendahara/pemasukan/add", pemasukanController.AddPemasukan)
+	router.PUT("/api/bendahara/pemasukan/update/:id", pemasukanController.UpdatePemasukan)
+	router.GET("/api/bendahara/pemasukan/getall", pemasukanController.GetPemasukan)
+	router.GET("/api/bendahara/pemasukan/get/:id", pemasukanController.GetById)
+	router.DELETE("/api/bendahara/pemasukan/delete/:id", pemasukanController.DeletePemasukan)
 
 	//pengeluaran
 	pengeluaranRepo := repository.NewPengeluaranRepo()
 	pengeluaranService := service.NewPengeluaranService(pengeluaranRepo, db)
 	pengeluaranController := controller.NewPengeluaranController(pengeluaranService)
 
-	router.POST("/api/pengeluaran/add", pengeluaranController.AddPengeluaran)
-	router.PUT("/api/pengeluaran/update/:id", pengeluaranController.UpdatePengeluaran)
-	router.GET("/api/pengeluaran/getall", pengeluaranController.GetPengeluaran)
-	router.GET("/api/pengeluaran/get/:id", pengeluaranController.GetById)
-	router.DELETE("/api/pengeluaran/delete/:id", pengeluaranController.DeletePengeluaran)
+	router.POST("/api/bendahara/pengeluaran/add", pengeluaranController.AddPengeluaran)
+	router.PUT("/api/bendahara/pengeluaran/update/:id", pengeluaranController.UpdatePengeluaran)
+	router.GET("/api/bendahara/pengeluaran/getall", pengeluaranController.GetPengeluaran)
+	router.GET("/api/bendahara/pengeluaran/get/:id", pengeluaranController.GetById)
+	router.DELETE("/api/bendahara/pengeluaran/delete/:id", pengeluaranController.DeletePengeluaran)
 
 	//transaksi
 	transactionRepo := repository.NewTransactionRepo()
 	transactionService := service.NewTransactionService(transactionRepo,db)
 	transactionController := controller.NewTransactionController(transactionService)
 
-	router.GET("/api/transaksi/getall", transactionController.GetAllTransaction)
-	router.GET("/api/transaksi/getlast", transactionController.GetLastTransaction)
+	router.GET("/api/bendahara/transaksi/getall", transactionController.GetAllTransaction)
+	router.GET("/api/bendahara/transaksi/getlast", transactionController.GetLastTransaction)
 
 	//laporan keuangan
 	laporanKeuanganRepo := repository.NewLaporanKeuanganRepo()
 	laporanKeuanganService := service.NewLaporanKeuanganService(laporanKeuanganRepo, db)
 	laporanKeuanganController := controller.NewLaporanKeuanganController(laporanKeuanganService)
 
-	router.GET("/api/laporan/getall", laporanKeuanganController.GetAllLaporan)
-	router.GET("/api/laporan/saldo", laporanKeuanganController.GetLastBalance)
-	router.GET("/api/laporan/pengeluaran", laporanKeuanganController.GetTotalExpenditure)
-	router.GET("/api/laporan/pemasukan", laporanKeuanganController.GetTotalIncome)
-	router.GET("/api/laporan/range", laporanKeuanganController.GetLaporanByDateRange)
+	router.GET("/api/bendahara/laporan/getall", laporanKeuanganController.GetAllLaporan)
+	router.GET("/api/bendahara/laporan/saldo", laporanKeuanganController.GetLastBalance)
+	router.GET("/api/bendahara/laporan/pengeluaran", laporanKeuanganController.GetTotalExpenditure)
+	router.GET("/api/bendahara/laporan/pemasukan", laporanKeuanganController.GetTotalIncome)
+	router.GET("/api/bendahara/laporan/range", laporanKeuanganController.GetLaporanByDateRange)
 
-	router.ServeFiles("/api/uploads/*filepath", http.Dir("./uploads/"))
+	router.ServeFiles("/api/bendahara/uploads/*filepath", http.Dir("./uploads/"))
 
 	handler := corsMiddleware(router)
 

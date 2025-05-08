@@ -61,7 +61,7 @@ func main() {
 
 	// Inisialisasi server
 	server := http.Server{
-		Addr:    fmt.Sprintf("%s:%s", config.Host, config.AppPort),
+		Addr:    fmt.Sprintf("%s:%s", config.AppHost, config.AppPort),
 		Handler: handler,
 	}
 

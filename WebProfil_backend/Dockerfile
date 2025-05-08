@@ -1,25 +1,31 @@
+# Stage 1: Build the application
+FROM golang:1.23-alpine AS builder
 
-# Gunakan image base Go versi terbaru
-FROM golang:latest
-
-# Buat direktori kerja di dalam container
 WORKDIR /app
 
-# Salin file go.mod dan go.sum untuk menginstal dependensi
+# Copy go mod and sum files
 COPY go.mod go.sum ./
 
-# Instal dependensi
+# Download all dependencies
 RUN go mod download
 
-# Salin seluruh kode sumber ke dalam container
+# Copy the source code
 COPY . .
 
-# Build aplikasi Go
-RUN go build -o main .
+# Build the application
+RUN CGO_ENABLED=0 GOOS=linux go build -o godesaapps-main .
 
-# Expose port yang digunakan oleh aplikasi (sesuaikan dengan kebutuhan)
+# Stage 2: Run the application
+FROM alpine:latest
+
+WORKDIR /app
+
+# Copy the binary and necessary files from builder
+COPY --from=builder /app/godesaapps-main .
+COPY --from=builder /app/.env .
+
+# Expose the application port
 EXPOSE 8085
 
-# Perintah untuk menjalankan aplikasi
-CMD ["./main"]
-
+# Command to run the application
+CMD ["./godesaapps-main"]
