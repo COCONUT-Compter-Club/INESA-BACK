@@ -22,7 +22,7 @@ func NewSuratKeluarService(repo *repository.SuratKeluarRepository) *SuratKeluarS
 
 func (s *SuratKeluarService) AddSuratKeluar(surat *model.SuratKeluar, file io.Reader, fileName string) error {
 	// Validasi input
-	if surat.Nomor == "" || surat.Tanggal == "" || surat.Perihal == "" || surat.Ditujukan == "" || surat.Title == "" {
+	if surat.Nomor == "" || surat.Tanggal == "" || surat.Perihal == "" || surat.Title == "" {
 		return fmt.Errorf("semua field wajib diisi")
 	}
 	if filepath.Ext(fileName) != ".pdf" {

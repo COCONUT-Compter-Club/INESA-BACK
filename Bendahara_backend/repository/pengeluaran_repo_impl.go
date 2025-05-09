@@ -60,6 +60,11 @@ func (s *pengeluaranRepoImpl) AddPengeluaran(ctx context.Context, tx *sql.Tx, pe
 		return pengeluaran, fmt.Errorf("failed to fetch previous saldo: %v", err)
 	}
 
+	// Validasi saldo cukup untuk pengeluaran
+	if pengeluaran.Nominal > saldoSebelumnya {
+		return pengeluaran, fmt.Errorf("insufficient saldo: %d, required: %d", saldoSebelumnya, pengeluaran.Nominal)
+	}
+
 	// Hitung saldo baru
 	saldoBaru := saldoSebelumnya - pengeluaran.Nominal
 
@@ -97,10 +102,100 @@ func (s *pengeluaranRepoImpl) UpdatePengeluaran(ctx context.Context, tx *sql.Tx,
 		return pengeluaran, fmt.Errorf("tanggal cannot be zero")
 	}
 
-	query := "UPDATE pengeluaran SET tanggal = ?, nota = ?, nominal = ?, keterangan = ? WHERE id_pengeluaran = ?"
-	_, err := tx.ExecContext(ctx, query, pengeluaran.Tanggal, pengeluaran.Nota, pengeluaran.Nominal, pengeluaran.Keterangan, id)
+	// Ambil data pengeluaran sebelumnya untuk mendapatkan nominal lama, tanggal lama, dan id_transaksi
+	var oldNominal uint64
+	var tanggalRaw []byte
+	var idTransaksi string
+	queryFetch := `
+		SELECT nominal, tanggal, id_transaksi 
+		FROM pengeluaran 
+		WHERE id_pengeluaran = ?
+	`
+	err := tx.QueryRowContext(ctx, queryFetch, id).Scan(&oldNominal, &tanggalRaw, &idTransaksi)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return pengeluaran, fmt.Errorf("pengeluaran with id %s not found", id)
+		}
+		return pengeluaran, fmt.Errorf("failed to fetch previous pengeluaran: %v", err)
+	}
+
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	oldTanggal, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to parse old tanggal: %v", err)
+	}
+
+	// Hitung selisih nominal (positif jika nominal baru lebih kecil, negatif jika lebih besar)
+	nominalDiff := int64(oldNominal) - int64(pengeluaran.Nominal)
+
+	// Perbarui tabel pengeluaran
+	queryPengeluaran := `
+		UPDATE pengeluaran 
+		SET tanggal = ?, nota = ?, nominal = ?, keterangan = ? 
+		WHERE id_pengeluaran = ?
+	`
+	_, err = tx.ExecContext(ctx, queryPengeluaran, pengeluaran.Tanggal, pengeluaran.Nota, pengeluaran.Nominal, pengeluaran.Keterangan, id)
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to update pengeluaran: %v", err)
+	}
+
+	// Perbarui tabel history_transaksi
+	queryHistory := `
+		UPDATE history_transaksi 
+		SET tanggal = ?, keterangan = ?, nominal = ? 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryHistory, pengeluaran.Tanggal, pengeluaran.Keterangan, pengeluaran.Nominal, idTransaksi)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to update history_transaksi: %v", err)
+	}
+
+	// Perbarui entri laporan_keuangan yang terkait dengan transaksi ini
+	queryLaporan := `
+		UPDATE laporan_keuangan 
+		SET tanggal = ?, keterangan = ?, pengeluaran = ?, saldo = saldo + ? 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryLaporan, pengeluaran.Tanggal, pengeluaran.Keterangan, pengeluaran.Nominal, nominalDiff, idTransaksi)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to update laporan_keuangan: %v", err)
+	}
+
+	// Perbarui saldo dan total pengeluaran untuk semua entri laporan_keuangan setelah tanggal baru
+	queryUpdateFuture := `
+		UPDATE laporan_keuangan 
+		SET saldo = saldo + ?, pengeluaran = GREATEST(0, pengeluaran + ?) 
+		WHERE tanggal > ?
+	`
+	_, err = tx.ExecContext(ctx, queryUpdateFuture, nominalDiff, -nominalDiff, pengeluaran.Tanggal)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to update future laporan_keuangan: %v", err)
+	}
+
+	// Jika tanggal berubah, perbarui saldo dan pengeluaran untuk entri antara tanggal lama dan baru
+	if !oldTanggal.Equal(pengeluaran.Tanggal) {
+		// Tambahkan kembali nominal lama pada entri setelah tanggal lama hingga tanggal baru
+		queryAdjustOld := `
+			UPDATE laporan_keuangan 
+			SET saldo = saldo + ?, pengeluaran = GREATEST(0, pengeluaran + ?) 
+			WHERE tanggal > ? AND tanggal <= ?
+		`
+		_, err = tx.ExecContext(ctx, queryAdjustOld, oldNominal, oldNominal, oldTanggal, pengeluaran.Tanggal)
+		if err != nil {
+			return pengeluaran, fmt.Errorf("failed to adjust laporan_keuangan for old tanggal: %v", err)
+		}
+
+		// Kurangi nominal baru pada entri setelah tanggal baru
+		queryAdjustNew := `
+			UPDATE laporan_keuangan 
+			SET saldo = saldo - ?, pengeluaran = GREATEST(0, pengeluaran + ?) 
+			WHERE tanggal > ?
+		`
+		_, err = tx.ExecContext(ctx, queryAdjustNew, pengeluaran.Nominal, pengeluaran.Nominal, pengeluaran.Tanggal)
+		if err != nil {
+			return pengeluaran, fmt.Errorf("failed to adjust laporan_keuangan for new tanggal: %v", err)
+		}
 	}
 
 	return pengeluaran, nil
@@ -122,18 +217,20 @@ func (s *pengeluaranRepoImpl) GetPengeluaran(ctx context.Context, tx *sql.Tx, pa
 	var pengeluaranSlice []model.Pengeluaran
 	for rows.Next() {
 		pengeluaran := model.Pengeluaran{}
-		var tanggalStr string
+		var tanggalRaw []byte
 
-		err := rows.Scan(&pengeluaran.Id, &tanggalStr, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
+		err := rows.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pengeluaran: %v", err)
 		}
 
-		// Parsing string ke time.Time
-		pengeluaran.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr)
+		// Konversi tanggalRaw ke time.Time
+		tanggalStr := string(tanggalRaw)
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
+		pengeluaran.Tanggal = parsedTime
 
 		pengeluaranSlice = append(pengeluaranSlice, pengeluaran)
 	}
@@ -159,10 +256,9 @@ func (s *pengeluaranRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id strin
 	row := tx.QueryRowContext(ctx, query, id)
 
 	pengeluaran := model.Pengeluaran{}
-	var tanggalStr string // Simpan tanggal sebagai string terlebih dahulu
+	var tanggalRaw []byte
 
-	// Scan ke variabel sementara (tanggalStr)
-	err := row.Scan(&pengeluaran.Id, &tanggalStr, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
+	err := row.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return pengeluaran, fmt.Errorf("pengeluaran not found")
@@ -170,140 +266,117 @@ func (s *pengeluaranRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id strin
 		return pengeluaran, fmt.Errorf("failed to scan pengeluaran: %v", err)
 	}
 
-	// Parsing string ke time.Time
-	pengeluaran.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr) // Sesuaikan format dengan data di database
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to parse tanggal: %v", err)
 	}
-
+	pengeluaran.Tanggal = parsedTime
 	return pengeluaran, nil
 }
 
 // DeletePengeluaran implements PengeluaranRepo.
 func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx, pengeluaran model.Pengeluaran) (model.Pengeluaran, error) {
-    // Validate input
-    if pengeluaran.Id == "" {
-        return pengeluaran, fmt.Errorf("id_pengeluaran cannot be empty")
-    }
+	// Validate input
+	if pengeluaran.Id == "" {
+		return pengeluaran, fmt.Errorf("id_pengeluaran cannot be empty")
+	}
 
-    // Fetch id_transaksi, nominal, and tanggal from pengeluaran
-    var idTransaksi string
-    var nominal int
-    var tanggal interface{}
-    queryFetch := `
-        SELECT id_transaksi, nominal, tanggal 
-        FROM pengeluaran 
-        WHERE id_pengeluaran = ?
-    `
-    err := tx.QueryRowContext(ctx, queryFetch, pengeluaran.Id).Scan(&idTransaksi, &nominal, &tanggal)
-    if err != nil {
-        if err == sql.ErrNoRows {
-            return pengeluaran, fmt.Errorf("pengeluaran with id %s not found", pengeluaran.Id)
-        }
-        return pengeluaran, fmt.Errorf("failed to fetch pengeluaran: %v", err)
-    }
+	// Fetch id_transaksi, nominal, and tanggal from pengeluaran
+	var idTransaksi string
+	var nominal uint64
+	var tanggalRaw []byte
+	queryFetch := `
+		SELECT id_transaksi, nominal, tanggal 
+		FROM pengeluaran 
+		WHERE id_pengeluaran = ?
+	`
+	err := tx.QueryRowContext(ctx, queryFetch, pengeluaran.Id).Scan(&idTransaksi, &nominal, &tanggalRaw)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return pengeluaran, fmt.Errorf("pengeluaran with id %s not found", pengeluaran.Id)
+		}
+		return pengeluaran, fmt.Errorf("failed to fetch pengeluaran: %v", err)
+	}
 
-    // Convert tanggal to time.Time
-    var tanggalTime time.Time
-    switch v := tanggal.(type) {
-    case time.Time:
-        tanggalTime = v
-    case []byte:
-        tanggalStr := string(v)
-        parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-        if err != nil {
-            return pengeluaran, fmt.Errorf("failed to parse tanggal: %v", err)
-        }
-        tanggalTime = parsedTime
-    default:
-        return pengeluaran, fmt.Errorf("unsupported type for tanggal: %T", v)
-    }
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	tanggalTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to parse tanggal: %v", err)
+	}
 
-    // Validate nominal
-    if nominal <= 0 {
-        return pengeluaran, fmt.Errorf("invalid nominal value: %d", nominal)
-    }
+	// Validate nominal
+	if nominal <= 0 {
+		return pengeluaran, fmt.Errorf("invalid nominal value: %d", nominal)
+	}
 
-    log.Printf("Fetched pengeluaran: id=%s, id_transaksi=%s, nominal=%d, tanggal=%v", pengeluaran.Id, idTransaksi, nominal, tanggalTime)
+	log.Printf("Fetched pengeluaran: id=%s, id_transaksi=%s, nominal=%d, tanggal=%v", pengeluaran.Id, idTransaksi, nominal, tanggalTime)
 
-    // Check if pengeluaran is sufficient
-    var minPengeluaran sql.NullInt64
-    queryCheck := `
-        SELECT MIN(pengeluaran)
-        FROM laporan_keuangan
-        WHERE tanggal > ?
-    `
-    err = tx.QueryRowContext(ctx, queryCheck, tanggalTime).Scan(&minPengeluaran)
-    if err != nil && err != sql.ErrNoRows {
-        return pengeluaran, fmt.Errorf("failed to check pengeluaran: %v", err)
-    }
-    if minPengeluaran.Valid && minPengeluaran.Int64 < int64(nominal) {
-        return pengeluaran, fmt.Errorf("cannot delete: insufficient pengeluaran (%d) for nominal (%d)", minPengeluaran.Int64, nominal)
-    }
+	// Delete from laporan_keuangan
+	queryLaporan := `
+		DELETE FROM laporan_keuangan 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryLaporan, idTransaksi)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to delete from laporan_keuangan: %v", err)
+	}
 
-    // Delete from laporan_keuangan
-    queryLaporan := `
-        DELETE FROM laporan_keuangan 
-        WHERE id_transaksi = ?
-    `
-    _, err = tx.ExecContext(ctx, queryLaporan, idTransaksi)
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to delete from laporan_keuangan: %v", err)
-    }
+	// Delete from history_transaksi
+	queryHistory := `
+		DELETE FROM history_transaksi 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryHistory, idTransaksi)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to delete from history_transaksi: %v", err)
+	}
 
-    // Delete from history_transaksi
-    queryHistory := `
-        DELETE FROM history_transaksi 
-        WHERE id_transaksi = ?
-    `
-    _, err = tx.ExecContext(ctx, queryHistory, idTransaksi)
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to delete from history_transaksi: %v", err)
-    }
+	// Delete from pengeluaran
+	queryPengeluaran := `
+		DELETE FROM pengeluaran 
+		WHERE id_pengeluaran = ?
+	`
+	_, err = tx.ExecContext(ctx, queryPengeluaran, pengeluaran.Id)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to delete from pengeluaran: %v", err)
+	}
 
-    // Delete from pengeluaran
-    queryPengeluaran := `
-        DELETE FROM pengeluaran 
-        WHERE id_pengeluaran = ?
-    `
-    _, err = tx.ExecContext(ctx, queryPengeluaran, pengeluaran.Id)
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to delete from pengeluaran: %v", err)
-    }
+	// Update saldo for all records after the deleted pengeluaran's tanggal
+	queryUpdateSaldo := `
+		UPDATE laporan_keuangan
+		SET saldo = saldo + ?
+		WHERE tanggal > ?
+	`
+	result, err := tx.ExecContext(ctx, queryUpdateSaldo, nominal, tanggalTime)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to update future saldo: %v", err)
+	}
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to check rows affected for saldo update: %v", err)
+	}
+	log.Printf("Updated %d rows in laporan_keuangan for saldo with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
 
-    // Update saldo for all records after the deleted pengeluaran's tanggal
-    queryUpdateSaldo := `
-        UPDATE laporan_keuangan
-        SET saldo = saldo + ?
-        WHERE tanggal > ?
-    `
-    result, err := tx.ExecContext(ctx, queryUpdateSaldo, nominal, tanggalTime)
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to update future saldo: %v", err)
-    }
-    rowsAffected, err := result.RowsAffected()
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to check rows affected for saldo update: %v", err)
-    }
-    log.Printf("Updated %d rows in laporan_keuangan for saldo with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
+	// Update total pengeluaran for all records after the deleted pengeluaran's tanggal
+	queryUpdatePengeluaran := `
+		UPDATE laporan_keuangan
+		SET pengeluaran = GREATEST(0, pengeluaran - ?)
+		WHERE tanggal > ?
+	`
+	result, err = tx.ExecContext(ctx, queryUpdatePengeluaran, nominal, tanggalTime)
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to update future pengeluaran: %v", err)
+	}
+	rowsAffected, err = result.RowsAffected()
+	if err != nil {
+		return pengeluaran, fmt.Errorf("failed to check rows affected for pengeluaran update: %v", err)
+	}
+	log.Printf("Updated %d rows in laporan_keuangan for pengeluaran with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
 
-    // Update total pengeluaran for all records after the deleted pengeluaran's tanggal
-    queryUpdatePengeluaran := `
-        UPDATE laporan_keuangan
-        SET pengeluaran = GREATEST(0, pengeluaran - ?)
-        WHERE tanggal > ?
-    `
-    result, err = tx.ExecContext(ctx, queryUpdatePengeluaran, nominal, tanggalTime)
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to update future pengeluaran: %v", err)
-    }
-    rowsAffected, err = result.RowsAffected()
-    if err != nil {
-        return pengeluaran, fmt.Errorf("failed to check rows affected for pengeluaran update: %v", err)
-    }
-    log.Printf("Updated %d rows in laporan_keuangan for pengeluaran with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
-
-    return pengeluaran, nil
+	return pengeluaran, nil
 }
 
 // GetPengeluaranByDateRange implements PengeluaranRepo.
@@ -328,18 +401,20 @@ func (s *pengeluaranRepoImpl) GetPengeluaranByDateRange(ctx context.Context, tx 
 	var pengeluaranSlice []model.Pengeluaran
 	for rows.Next() {
 		pengeluaran := model.Pengeluaran{}
-		var tanggalStr string
+		var tanggalRaw []byte
 
-		err := rows.Scan(&pengeluaran.Id, &tanggalStr, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
+		err := rows.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pengeluaran: %v", err)
 		}
 
-		// Parsing string ke time.Time
-		pengeluaran.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr)
+		// Konversi tanggalRaw ke time.Time
+		tanggalStr := string(tanggalRaw)
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
+		pengeluaran.Tanggal = parsedTime
 
 		pengeluaranSlice = append(pengeluaranSlice, pengeluaran)
 	}

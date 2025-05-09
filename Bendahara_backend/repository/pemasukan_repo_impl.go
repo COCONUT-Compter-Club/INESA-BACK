@@ -97,10 +97,100 @@ func (s *pemasukanRepoImpl) UpdatePemasukan(ctx context.Context, tx *sql.Tx, pem
 		return pemasukan, fmt.Errorf("tanggal cannot be zero")
 	}
 
-	query := "UPDATE pemasukan SET tanggal = ?, kategori = ?, keterangan = ?, nominal = ?, nota = ? WHERE id_pemasukan = ?"
-	_, err := tx.ExecContext(ctx, query, pemasukan.Tanggal, pemasukan.Kategori, pemasukan.Keterangan, pemasukan.Nominal, pemasukan.Nota, id)
+	// Ambil data pemasukan sebelumnya untuk mendapatkan nominal lama, tanggal lama, dan id_transaksi
+	var oldNominal uint64
+	var tanggalRaw []byte
+	var idTransaksi string
+	queryFetch := `
+		SELECT nominal, tanggal, id_transaksi 
+		FROM pemasukan 
+		WHERE id_pemasukan = ?
+	`
+	err := tx.QueryRowContext(ctx, queryFetch, id).Scan(&oldNominal, &tanggalRaw, &idTransaksi)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return pemasukan, fmt.Errorf("pemasukan with id %s not found", id)
+		}
+		return pemasukan, fmt.Errorf("failed to fetch previous pemasukan: %v", err)
+	}
+
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	oldTanggal, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to parse old tanggal: %v", err)
+	}
+
+	// Hitung selisih nominal
+	nominalDiff := int64(pemasukan.Nominal) - int64(oldNominal)
+
+	// Perbarui tabel pemasukan
+	queryPemasukan := `
+		UPDATE pemasukan 
+		SET tanggal = ?, kategori = ?, keterangan = ?, nominal = ?, nota = ? 
+		WHERE id_pemasukan = ?
+	`
+	_, err = tx.ExecContext(ctx, queryPemasukan, pemasukan.Tanggal, pemasukan.Kategori, pemasukan.Keterangan, pemasukan.Nominal, pemasukan.Nota, id)
 	if err != nil {
 		return pemasukan, fmt.Errorf("failed to update pemasukan: %v", err)
+	}
+
+	// Perbarui tabel history_transaksi
+	queryHistory := `
+		UPDATE history_transaksi 
+		SET tanggal = ?, keterangan = ?, nominal = ? 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryHistory, pemasukan.Tanggal, pemasukan.Keterangan, pemasukan.Nominal, idTransaksi)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to update history_transaksi: %v", err)
+	}
+
+	// Perbarui entri laporan_keuangan yang terkait dengan transaksi ini
+	queryLaporan := `
+		UPDATE laporan_keuangan 
+		SET tanggal = ?, keterangan = ?, pemasukan = ?, saldo = saldo + ? 
+		WHERE id_transaksi = ?
+	`
+	_, err = tx.ExecContext(ctx, queryLaporan, pemasukan.Tanggal, pemasukan.Keterangan, pemasukan.Nominal, nominalDiff, idTransaksi)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to update laporan_keuangan: %v", err)
+	}
+
+	// Perbarui saldo dan total pemasukan untuk semua entri laporan_keuangan setelah tanggal baru
+	queryUpdateFuture := `
+		UPDATE laporan_keuangan 
+		SET saldo = saldo + ?, pemasukan = pemasukan + ? 
+		WHERE tanggal > ?
+	`
+	_, err = tx.ExecContext(ctx, queryUpdateFuture, nominalDiff, nominalDiff, pemasukan.Tanggal)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to update future laporan_keuangan: %v", err)
+	}
+
+	// Jika tanggal berubah, perbarui saldo dan pemasukan untuk entri antara tanggal lama dan baru
+	if !oldTanggal.Equal(pemasukan.Tanggal) {
+		// Kurangi pengaruh nominal lama pada entri setelah tanggal lama
+		queryAdjustOld := `
+			UPDATE laporan_keuangan 
+			SET saldo = saldo - ?, pemasukan = pemasukan - ? 
+			WHERE tanggal > ? AND tanggal <= ?
+		`
+		_, err = tx.ExecContext(ctx, queryAdjustOld, oldNominal, oldNominal, oldTanggal, pemasukan.Tanggal)
+		if err != nil {
+			return pemasukan, fmt.Errorf("failed to adjust laporan_keuangan for old tanggal: %v", err)
+		}
+
+		// Tambahkan pengaruh nominal baru pada entri setelah tanggal baru
+		queryAdjustNew := `
+			UPDATE laporan_keuangan 
+			SET saldo = saldo + ?, pemasukan = pemasukan + ? 
+			WHERE tanggal > ?
+		`
+		_, err = tx.ExecContext(ctx, queryAdjustNew, pemasukan.Nominal, pemasukan.Nominal, pemasukan.Tanggal)
+		if err != nil {
+			return pemasukan, fmt.Errorf("failed to adjust laporan_keuangan for new tanggal: %v", err)
+		}
 	}
 
 	return pemasukan, nil
@@ -122,26 +212,20 @@ func (s *pemasukanRepoImpl) GetPemasukan(ctx context.Context, tx *sql.Tx, page i
 	var pemasukanSlice []model.Pemasukan
 	for rows.Next() {
 		pemasukan := model.Pemasukan{}
-		var tanggal interface{}
+		var tanggalRaw []byte
 
-		err := rows.Scan(&pemasukan.Id, &tanggal, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
+		err := rows.Scan(&pemasukan.Id, &tanggalRaw, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pemasukan: %v", err)
 		}
 
-		switch v := tanggal.(type) {
-		case time.Time:
-			pemasukan.Tanggal = v
-		case []byte:
-			tanggalStr := string(v)
-			parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-			if err != nil {
-				return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
-			}
-			pemasukan.Tanggal = parsedTime
-		default:
-			return nil, 0, fmt.Errorf("unsupported type for tanggal: %T", v)
+		// Konversi tanggalRaw ke time.Time
+		tanggalStr := string(tanggalRaw)
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
+		pemasukan.Tanggal = parsedTime
 
 		pemasukanSlice = append(pemasukanSlice, pemasukan)
 	}
@@ -167,10 +251,9 @@ func (s *pemasukanRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id string)
 	row := tx.QueryRowContext(ctx, query, id)
 
 	pemasukan := model.Pemasukan{}
-	var tanggal interface{} // Simpan tanggal sebagai interface{} untuk debugging
+	var tanggalRaw []byte
 
-	// Scan ke variabel interface{}
-	err := row.Scan(&pemasukan.Id, &tanggal, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
+	err := row.Scan(&pemasukan.Id, &tanggalRaw, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return pemasukan, fmt.Errorf("pemasukan not found")
@@ -178,21 +261,13 @@ func (s *pemasukanRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id string)
 		return pemasukan, fmt.Errorf("failed to scan pemasukan: %v", err)
 	}
 
-	// Konversi manual jika diperlukan
-	switch v := tanggal.(type) {
-	case time.Time:
-		pemasukan.Tanggal = v
-	case []byte:
-		// Jika tanggal adalah []byte, parse ke time.Time
-		tanggalStr := string(v)
-		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-		if err != nil {
-			return pemasukan, fmt.Errorf("failed to parse tanggal: %v", err)
-		}
-		pemasukan.Tanggal = parsedTime
-	default:
-		return pemasukan, fmt.Errorf("unsupported type for tanggal: %T", v)
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to parse tanggal: %v", err)
 	}
+	pemasukan.Tanggal = parsedTime
 
 	return pemasukan, nil
 }
@@ -207,13 +282,13 @@ func (s *pemasukanRepoImpl) DeletePemasukan(ctx context.Context, tx *sql.Tx, pem
 	// Fetch id_transaksi, nominal, and tanggal from pemasukan
 	var idTransaksi string
 	var nominal int
-	var tanggal interface{}
+	var tanggalRaw []byte
 	queryFetch := `
 		SELECT id_transaksi, nominal, tanggal 
 		FROM pemasukan 
 		WHERE id_pemasukan = ?
 	`
-	err := tx.QueryRowContext(ctx, queryFetch, pemasukan.Id).Scan(&idTransaksi, &nominal, &tanggal)
+	err := tx.QueryRowContext(ctx, queryFetch, pemasukan.Id).Scan(&idTransaksi, &nominal, &tanggalRaw)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return pemasukan, fmt.Errorf("pemasukan with id %s not found", pemasukan.Id)
@@ -221,20 +296,11 @@ func (s *pemasukanRepoImpl) DeletePemasukan(ctx context.Context, tx *sql.Tx, pem
 		return pemasukan, fmt.Errorf("failed to fetch pemasukan: %v", err)
 	}
 
-	// Convert tanggal to time.Time
-	var tanggalTime time.Time
-	switch v := tanggal.(type) {
-	case time.Time:
-		tanggalTime = v
-	case []byte:
-		tanggalStr := string(v)
-		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-		if err != nil {
-			return pemasukan, fmt.Errorf("failed to parse tanggal: %v", err)
-		}
-		tanggalTime = parsedTime
-	default:
-		return pemasukan, fmt.Errorf("unsupported type for tanggal: %T", v)
+	// Konversi tanggalRaw ke time.Time
+	tanggalStr := string(tanggalRaw)
+	tanggalTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+	if err != nil {
+		return pemasukan, fmt.Errorf("failed to parse tanggal: %v", err)
 	}
 
 	// Validate nominal
@@ -331,26 +397,20 @@ func (s *pemasukanRepoImpl) GetPemasukanByDateRange(ctx context.Context, tx *sql
 	var pemasukanSlice []model.Pemasukan
 	for rows.Next() {
 		pemasukan := model.Pemasukan{}
-		var tanggal interface{}
+		var tanggalRaw []byte
 
-		err := rows.Scan(&pemasukan.Id, &tanggal, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
+		err := rows.Scan(&pemasukan.Id, &tanggalRaw, &pemasukan.Kategori, &pemasukan.Keterangan, &pemasukan.Nominal, &pemasukan.Nota)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pemasukan: %v", err)
 		}
 
-		switch v := tanggal.(type) {
-		case time.Time:
-			pemasukan.Tanggal = v
-		case []byte:
-			tanggalStr := string(v)
-			parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-			if err != nil {
-				return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
-			}
-			pemasukan.Tanggal = parsedTime
-		default:
-			return nil, 0, fmt.Errorf("unsupported type for tanggal: %T", v)
+		// Konversi tanggalRaw ke time.Time
+		tanggalStr := string(tanggalRaw)
+		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
+		pemasukan.Tanggal = parsedTime
 
 		pemasukanSlice = append(pemasukanSlice, pemasukan)
 	}
