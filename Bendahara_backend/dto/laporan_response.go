@@ -6,5 +6,6 @@ type LaporanKeuanganResponse struct {
 	Keterangan  string `json:"keterangan"`
 	Pemasukan   uint64 `json:"pemasukan"`
 	Pengeluaran uint64 `json:"pengeluaran"`
+	Nota        string `json:"nota"`
 	Saldo       int64  `json:"total_saldo"`
 }

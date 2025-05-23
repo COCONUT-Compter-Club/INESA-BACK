@@ -15,6 +15,7 @@ func ConvertLaporanToResponseDTO(laporan model.LaporanKeuangan) dto.LaporanKeuan
 		Keterangan:  laporan.Keterangan,
 		Pemasukan:   laporan.Pemasukan,
 		Pengeluaran: laporan.Pengeluaran,
+		Nota:        laporan.Nota,
 		Saldo:       laporan.Saldo,
 	}
 }

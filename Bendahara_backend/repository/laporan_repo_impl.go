@@ -9,100 +9,123 @@ import (
 	"github.com/syrlramadhan/api-bendahara-inovdes/model"
 )
 
-type laporanKeuanganRepoImpl struct {
-}
+type laporanKeuanganRepoImpl struct {}
 
+// NewLaporanKeuanganRepo creates a new instance of the laporan keuangan repository
 func NewLaporanKeuanganRepo() LaporanKeuanganRepo {
 	return &laporanKeuanganRepoImpl{}
 }
 
-// GetAllLaporan implements LaporanKeuanganRepo.
+// GetAllLaporan retrieves all laporan keuangan, sorted by tanggal descending
 func (l *laporanKeuanganRepoImpl) GetAllLaporan(ctx context.Context, tx *sql.Tx) ([]model.LaporanKeuangan, error) {
 	var laporans []model.LaporanKeuangan
-	query := "SELECT id_laporan, tanggal, keterangan, pemasukan, pengeluaran, saldo FROM laporan_keuangan ORDER BY tanggal DESC"
+	// Include column `nota` in the SELECT
+	query := `SELECT id_laporan, tanggal, keterangan, nota, pemasukan, pengeluaran, saldo
+		FROM laporan_keuangan
+		ORDER BY tanggal DESC`
+
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
 		return laporans, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		laporan := model.LaporanKeuangan{}
-		var tanggal interface{} // Simpan tanggal sebagai interface{} untuk debugging
+		var laporan model.LaporanKeuangan
+		var tanggalRaw interface{}
 
-		// Scan ke variabel interface{}
-		err := rows.Scan(&laporan.Id, &tanggal, &laporan.Keterangan, &laporan.Pemasukan, &laporan.Pengeluaran, &laporan.Saldo)
+		// Scan including the `nota` field
+		err := rows.Scan(
+			&laporan.Id,
+			&tanggalRaw,
+			&laporan.Keterangan,
+			&laporan.Nota,
+			&laporan.Pemasukan,
+			&laporan.Pengeluaran,
+			&laporan.Saldo,
+		)
 		if err != nil {
 			return laporans, err
 		}
 
-		// Konversi manual jika diperlukan
-		switch v := tanggal.(type) {
+		// Convert tanggal to time.Time
+		switch v := tanggalRaw.(type) {
 		case time.Time:
 			laporan.Tanggal = v
 		case []byte:
-			// Jika tanggal adalah []byte, parse ke time.Time
-			tanggalStr := string(v)
-			parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
-			if err != nil {
-				return laporans, fmt.Errorf("failed to parse tanggal: %v", err)
+			parsed, perr := time.Parse("2006-01-02 15:04:05", string(v))
+			if perr != nil {
+				return laporans, fmt.Errorf("failed to parse tanggal: %v", perr)
 			}
-			laporan.Tanggal = parsedTime
+			laporan.Tanggal = parsed
 		default:
 			return laporans, fmt.Errorf("unsupported type for tanggal: %T", v)
 		}
 
 		laporans = append(laporans, laporan)
 	}
+
+	if err = rows.Err(); err != nil {
+		return laporans, err
+	}
+
 	return laporans, nil
 }
 
-// GetLastBalance implements LaporanKeuanganRepo.
+// GetLastBalance retrieves the most recent saldo
 func (l *laporanKeuanganRepoImpl) GetLastBalance(ctx context.Context, tx *sql.Tx) (int64, error) {
-	var laporans model.LaporanKeuangan
-	query := "SELECT saldo FROM laporan_keuangan ORDER BY tanggal DESC LIMIT 1"
-	err := tx.QueryRowContext(ctx, query).Scan(&laporans.Saldo)
+	var saldo int64
+	query := `SELECT saldo FROM laporan_keuangan ORDER BY tanggal DESC LIMIT 1`
+	err := tx.QueryRowContext(ctx, query).Scan(&saldo)
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
-		return laporans.Saldo, fmt.Errorf("failed to fetch previous saldo: %v", err)
+		return 0, fmt.Errorf("failed to fetch previous saldo: %v", err)
 	}
-	return laporans.Saldo, nil
+	return saldo, nil
 }
 
-// GetLaporanByDateRange mengambil data laporan keuangan berdasarkan rentang tanggal
-func (l *laporanKeuanganRepoImpl) GetLaporanByDateRange(ctx context.Context, tx *sql.Tx, startDate string, endDate string) ([]model.LaporanKeuangan, error) {
+// GetLaporanByDateRange retrieves laporan keuangan within a given date range
+func (l *laporanKeuanganRepoImpl) GetLaporanByDateRange(ctx context.Context, tx *sql.Tx, startDate, endDate string) ([]model.LaporanKeuangan, error) {
 	var laporans []model.LaporanKeuangan
+	// Include `nota` in SELECT
+	query := `SELECT id_laporan, tanggal, keterangan, nota, pemasukan, pengeluaran, saldo
+		FROM laporan_keuangan
+		WHERE tanggal BETWEEN ? AND ?
+		ORDER BY tanggal ASC`
 
-	// Query dengan filter rentang tanggal
-	query := `SELECT id_laporan, tanggal, keterangan, pemasukan, pengeluaran, saldo FROM laporan_keuangan WHERE tanggal BETWEEN ? AND ? ORDER BY tanggal ASC`
-
-	// Eksekusi query dengan parameter startDate dan endDate
 	rows, err := tx.QueryContext(ctx, query, startDate, endDate)
 	if err != nil {
 		return laporans, fmt.Errorf("failed to fetch laporan by date range: %v", err)
 	}
 	defer rows.Close()
 
-	// Iterasi hasil query dan masukkan ke dalam slice laporans
 	for rows.Next() {
-		laporan := model.LaporanKeuangan{}
-		var tanggalStr string // Simpan tanggal sebagai string terlebih dahulu
+		var laporan model.LaporanKeuangan
+		var tanggalStr string
 
-		// Scan ke variabel sementara (tanggalStr)
-		err := rows.Scan(&laporan.Id, &tanggalStr, &laporan.Keterangan, &laporan.Pemasukan, &laporan.Pengeluaran, &laporan.Saldo)
+		err := rows.Scan(
+			&laporan.Id,
+			&tanggalStr,
+			&laporan.Keterangan,
+			&laporan.Nota,
+			&laporan.Pemasukan,
+			&laporan.Pengeluaran,
+			&laporan.Saldo,
+		)
 		if err != nil {
 			return laporans, fmt.Errorf("failed to scan laporan: %v", err)
 		}
 
-		// Parsing string ke time.Time
-		laporan.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr) // Sesuaikan format dengan data di database
-		if err != nil {
-			return laporans, fmt.Errorf("failed to parse tanggal: %v", err)
+		// Parse tanggal string
+		parsed, perr := time.Parse("2006-01-02 15:04:05", tanggalStr)
+		if perr != nil {
+			return laporans, fmt.Errorf("failed to parse tanggal: %v", perr)
 		}
+		laporan.Tanggal = parsed
 
 		laporans = append(laporans, laporan)
 	}
 
-	// Periksa error setelah iterasi
 	if err = rows.Err(); err != nil {
 		return laporans, fmt.Errorf("error after iterating rows: %v", err)
 	}

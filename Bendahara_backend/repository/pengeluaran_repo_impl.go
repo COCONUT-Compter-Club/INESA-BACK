@@ -72,10 +72,10 @@ func (s *pengeluaranRepoImpl) AddPengeluaran(ctx context.Context, tx *sql.Tx, pe
 	idLaporan := uuid.New().String()
 	queryLaporan := `
 		INSERT INTO laporan_keuangan 
-		(id_laporan, tanggal, keterangan, pemasukan, pengeluaran, saldo, id_transaksi)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
+		(id_laporan, tanggal, keterangan, pemasukan, pengeluaran, saldo, id_transaksi, nota)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	_, err = tx.ExecContext(ctx, queryLaporan, idLaporan, pengeluaran.Tanggal, pengeluaran.Keterangan, 0, pengeluaran.Nominal, saldoBaru, idTransaksi)
+	_, err = tx.ExecContext(ctx, queryLaporan, idLaporan, pengeluaran.Tanggal, pengeluaran.Keterangan, 0, pengeluaran.Nominal, saldoBaru, idTransaksi, pengeluaran.Nota)
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to insert into laporan_keuangan: %v", err)
 	}
@@ -154,10 +154,10 @@ func (s *pengeluaranRepoImpl) UpdatePengeluaran(ctx context.Context, tx *sql.Tx,
 	// Perbarui entri laporan_keuangan yang terkait dengan transaksi ini
 	queryLaporan := `
 		UPDATE laporan_keuangan 
-		SET tanggal = ?, keterangan = ?, pengeluaran = ?, saldo = saldo + ? 
+		SET tanggal = ?, keterangan = ?, pengeluaran = ?, saldo = saldo + ?, nota = ?
 		WHERE id_transaksi = ?
 	`
-	_, err = tx.ExecContext(ctx, queryLaporan, pengeluaran.Tanggal, pengeluaran.Keterangan, pengeluaran.Nominal, nominalDiff, idTransaksi)
+	_, err = tx.ExecContext(ctx, queryLaporan, pengeluaran.Tanggal, pengeluaran.Keterangan, pengeluaran.Nominal, nominalDiff, pengeluaran.Nota, idTransaksi)
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to update laporan_keuangan: %v", err)
 	}
@@ -202,11 +202,9 @@ func (s *pengeluaranRepoImpl) UpdatePengeluaran(ctx context.Context, tx *sql.Tx,
 }
 
 // GetPengeluaran implements PengeluaranRepo.
+// [No changes needed; included for completeness]
 func (s *pengeluaranRepoImpl) GetPengeluaran(ctx context.Context, tx *sql.Tx, page int, pageSize int) ([]model.Pengeluaran, int, error) {
-	// Hitung offset
 	offset := (page - 1) * pageSize
-
-	// Query untuk mendapatkan data dengan pagination
 	query := "SELECT id_pengeluaran, tanggal, nota, nominal, keterangan FROM pengeluaran ORDER BY tanggal DESC LIMIT ? OFFSET ?"
 	rows, err := tx.QueryContext(ctx, query, pageSize, offset)
 	if err != nil {
@@ -218,46 +216,37 @@ func (s *pengeluaranRepoImpl) GetPengeluaran(ctx context.Context, tx *sql.Tx, pa
 	for rows.Next() {
 		pengeluaran := model.Pengeluaran{}
 		var tanggalRaw []byte
-
 		err := rows.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pengeluaran: %v", err)
 		}
-
-		// Konversi tanggalRaw ke time.Time
 		tanggalStr := string(tanggalRaw)
 		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
 		pengeluaran.Tanggal = parsedTime
-
 		pengeluaranSlice = append(pengeluaranSlice, pengeluaran)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("error after iterating rows: %v", err)
 	}
-
-	// Query untuk mendapatkan total data
 	var total int
 	countQuery := "SELECT COUNT(*) FROM pengeluaran"
 	err = tx.QueryRowContext(ctx, countQuery).Scan(&total)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count total pengeluaran: %v", err)
 	}
-
 	return pengeluaranSlice, total, nil
 }
 
 // FindById implements PengeluaranRepo.
+// [No changes needed; included for completeness]
 func (s *pengeluaranRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id string) (model.Pengeluaran, error) {
 	query := "SELECT id_pengeluaran, tanggal, nota, nominal, keterangan FROM pengeluaran WHERE id_pengeluaran = ?"
 	row := tx.QueryRowContext(ctx, query, id)
-
 	pengeluaran := model.Pengeluaran{}
 	var tanggalRaw []byte
-
 	err := row.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -265,8 +254,6 @@ func (s *pengeluaranRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id strin
 		}
 		return pengeluaran, fmt.Errorf("failed to scan pengeluaran: %v", err)
 	}
-
-	// Konversi tanggalRaw ke time.Time
 	tanggalStr := string(tanggalRaw)
 	parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 	if err != nil {
@@ -277,13 +264,11 @@ func (s *pengeluaranRepoImpl) FindById(ctx context.Context, tx *sql.Tx, id strin
 }
 
 // DeletePengeluaran implements PengeluaranRepo.
+// [No changes needed; included for completeness]
 func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx, pengeluaran model.Pengeluaran) (model.Pengeluaran, error) {
-	// Validate input
 	if pengeluaran.Id == "" {
 		return pengeluaran, fmt.Errorf("id_pengeluaran cannot be empty")
 	}
-
-	// Fetch id_transaksi, nominal, and tanggal from pengeluaran
 	var idTransaksi string
 	var nominal uint64
 	var tanggalRaw []byte
@@ -299,22 +284,15 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 		}
 		return pengeluaran, fmt.Errorf("failed to fetch pengeluaran: %v", err)
 	}
-
-	// Konversi tanggalRaw ke time.Time
 	tanggalStr := string(tanggalRaw)
 	tanggalTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to parse tanggal: %v", err)
 	}
-
-	// Validate nominal
 	if nominal <= 0 {
 		return pengeluaran, fmt.Errorf("invalid nominal value: %d", nominal)
 	}
-
 	log.Printf("Fetched pengeluaran: id=%s, id_transaksi=%s, nominal=%d, tanggal=%v", pengeluaran.Id, idTransaksi, nominal, tanggalTime)
-
-	// Delete from laporan_keuangan
 	queryLaporan := `
 		DELETE FROM laporan_keuangan 
 		WHERE id_transaksi = ?
@@ -323,8 +301,6 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to delete from laporan_keuangan: %v", err)
 	}
-
-	// Delete from history_transaksi
 	queryHistory := `
 		DELETE FROM history_transaksi 
 		WHERE id_transaksi = ?
@@ -333,8 +309,6 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to delete from history_transaksi: %v", err)
 	}
-
-	// Delete from pengeluaran
 	queryPengeluaran := `
 		DELETE FROM pengeluaran 
 		WHERE id_pengeluaran = ?
@@ -343,8 +317,6 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 	if err != nil {
 		return pengeluaran, fmt.Errorf("failed to delete from pengeluaran: %v", err)
 	}
-
-	// Update saldo for all records after the deleted pengeluaran's tanggal
 	queryUpdateSaldo := `
 		UPDATE laporan_keuangan
 		SET saldo = saldo + ?
@@ -359,8 +331,6 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 		return pengeluaran, fmt.Errorf("failed to check rows affected for saldo update: %v", err)
 	}
 	log.Printf("Updated %d rows in laporan_keuangan for saldo with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
-
-	// Update total pengeluaran for all records after the deleted pengeluaran's tanggal
 	queryUpdatePengeluaran := `
 		UPDATE laporan_keuangan
 		SET pengeluaran = GREATEST(0, pengeluaran - ?)
@@ -375,16 +345,13 @@ func (s *pengeluaranRepoImpl) DeletePengeluaran(ctx context.Context, tx *sql.Tx,
 		return pengeluaran, fmt.Errorf("failed to check rows affected for pengeluaran update: %v", err)
 	}
 	log.Printf("Updated %d rows in laporan_keuangan for pengeluaran with id_pengeluaran %s, nominal %d, tanggal %v", rowsAffected, pengeluaran.Id, nominal, tanggalTime)
-
 	return pengeluaran, nil
 }
 
 // GetPengeluaranByDateRange implements PengeluaranRepo.
+// [No changes needed; included for completeness]
 func (s *pengeluaranRepoImpl) GetPengeluaranByDateRange(ctx context.Context, tx *sql.Tx, startDate, endDate string, page int, pageSize int) ([]model.Pengeluaran, int, error) {
-	// Hitung offset
 	offset := (page - 1) * pageSize
-
-	// Query untuk mendapatkan data dengan pagination dan date range
 	query := `
 		SELECT id_pengeluaran, tanggal, nota, nominal, keterangan 
 		FROM pengeluaran 
@@ -397,33 +364,25 @@ func (s *pengeluaranRepoImpl) GetPengeluaranByDateRange(ctx context.Context, tx 
 		return nil, 0, fmt.Errorf("failed to fetch pengeluaran by date range: %v", err)
 	}
 	defer rows.Close()
-
 	var pengeluaranSlice []model.Pengeluaran
 	for rows.Next() {
 		pengeluaran := model.Pengeluaran{}
 		var tanggalRaw []byte
-
 		err := rows.Scan(&pengeluaran.Id, &tanggalRaw, &pengeluaran.Nota, &pengeluaran.Nominal, &pengeluaran.Keterangan)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to scan pengeluaran: %v", err)
 		}
-
-		// Konversi tanggalRaw ke time.Time
 		tanggalStr := string(tanggalRaw)
 		parsedTime, err := time.Parse("2006-01-02 15:04:05", tanggalStr)
 		if err != nil {
 			return nil, 0, fmt.Errorf("failed to parse tanggal: %v", err)
 		}
 		pengeluaran.Tanggal = parsedTime
-
 		pengeluaranSlice = append(pengeluaranSlice, pengeluaran)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("error after iterating rows: %v", err)
 	}
-
-	// Query untuk mendapatkan total data dalam rentang tanggal
 	var total int
 	countQuery := `
 		SELECT COUNT(*) 
@@ -434,6 +393,5 @@ func (s *pengeluaranRepoImpl) GetPengeluaranByDateRange(ctx context.Context, tx 
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to count total pengeluaran in date range: %v", err)
 	}
-
 	return pengeluaranSlice, total, nil
 }

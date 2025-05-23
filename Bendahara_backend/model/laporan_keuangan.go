@@ -8,5 +8,6 @@ type LaporanKeuangan struct {
 	Keterangan  string
 	Pemasukan   uint64
 	Pengeluaran uint64
+	Nota        string
 	Saldo       int64
 }

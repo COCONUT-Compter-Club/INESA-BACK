@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 8.0.41, for Linux (x86_64)
+-- MySQL dump 10.13  Distrib 8.0.42, for Win64 (x86_64)
 --
--- Host: yamabiko.proxy.rlwy.net    Database: railway
+-- Host: localhost    Database: bendahara
 -- ------------------------------------------------------
--- Server version	9.2.0
+-- Server version	8.0.42
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -16,29 +16,29 @@
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
 --
--- Table structure for table `Admin`
+-- Table structure for table `admin`
 --
 
-DROP TABLE IF EXISTS `Admin`;
+DROP TABLE IF EXISTS `admin`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `Admin` (
-  `id` varchar(65) COLLATE utf8mb4_general_ci NOT NULL,
-  `nik` varchar(20) COLLATE utf8mb4_general_ci NOT NULL,
-  `username` varchar(20) COLLATE utf8mb4_general_ci NOT NULL,
-  `password` text COLLATE utf8mb4_general_ci NOT NULL,
-  `role` enum('superAdmin','bendahara','guest') COLLATE utf8mb4_general_ci NOT NULL
+CREATE TABLE `admin` (
+  `id` varchar(65) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `nik` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `username` varchar(20) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `password` text CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL,
+  `role` enum('superAdmin','bendahara','guest') CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
--- Dumping data for table `Admin`
+-- Dumping data for table `admin`
 --
 
-LOCK TABLES `Admin` WRITE;
-/*!40000 ALTER TABLE `Admin` DISABLE KEYS */;
-INSERT INTO `Admin` VALUES ('4433c69f-2003-42a7-9676-ea9b9dbc9f33','123','admin','$2a$10$BVl7TJ1A8Yefr1hmXAsRdeilnHozYjUzplbpAH9fOMPvbiFEcOFwm','superAdmin');
-/*!40000 ALTER TABLE `Admin` ENABLE KEYS */;
+LOCK TABLES `admin` WRITE;
+/*!40000 ALTER TABLE `admin` DISABLE KEYS */;
+INSERT INTO `admin` VALUES ('4433c69f-2003-42a7-9676-ea9b9dbc9f33','123','admin','$2a$10$BVl7TJ1A8Yefr1hmXAsRdeilnHozYjUzplbpAH9fOMPvbiFEcOFwm','superAdmin');
+/*!40000 ALTER TABLE `admin` ENABLE KEYS */;
 UNLOCK TABLES;
 
 --
@@ -64,7 +64,7 @@ CREATE TABLE `history_transaksi` (
 
 LOCK TABLES `history_transaksi` WRITE;
 /*!40000 ALTER TABLE `history_transaksi` DISABLE KEYS */;
-INSERT INTO `history_transaksi` VALUES ('62694789-0edc-4c23-8bab-e5f2a2c408b8','2025-05-03 20:31:00','fgh','Pengeluaran',50000),('e7327991-89f6-4a4f-aa22-bf5f244f7b5d','2025-05-03 20:30:00','vghfg','Pemasukan',100000);
+INSERT INTO `history_transaksi` VALUES ('282bd4a7-2a9b-43a3-b62c-6b463e13701b','2025-05-21 07:34:00','test','Pengeluaran',10000),('49201e0c-2c11-4147-b3b6-4dd289205c98','2006-01-02 07:04:00','keterangan','Pemasukan',1000000),('ea55e279-d7c6-494e-97ac-cf600e9c210d','2025-05-21 07:32:00','rewrewr','Pemasukan',1000000);
 /*!40000 ALTER TABLE `history_transaksi` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -81,6 +81,7 @@ CREATE TABLE `laporan_keuangan` (
   `keterangan` varchar(255) DEFAULT NULL,
   `pemasukan` bigint NOT NULL,
   `pengeluaran` bigint NOT NULL,
+  `nota` varchar(255) DEFAULT 'no data',
   `saldo` bigint NOT NULL,
   `id_transaksi` varchar(36) NOT NULL,
   PRIMARY KEY (`id_laporan`),
@@ -95,7 +96,7 @@ CREATE TABLE `laporan_keuangan` (
 
 LOCK TABLES `laporan_keuangan` WRITE;
 /*!40000 ALTER TABLE `laporan_keuangan` DISABLE KEYS */;
-INSERT INTO `laporan_keuangan` VALUES ('280ae801-abac-47b0-91d4-41004fa31caa','2025-05-03 20:30:00','vghfg',100000,0,100000,'e7327991-89f6-4a4f-aa22-bf5f244f7b5d'),('d80ee1c8-7e5a-4176-94f8-731a85fa29e8','2025-05-03 20:31:00','fgh',0,50000,50000,'62694789-0edc-4c23-8bab-e5f2a2c408b8');
+INSERT INTO `laporan_keuangan` VALUES ('04451000-1aff-4d78-a0d4-45f078e869f5','2006-01-02 07:04:00','keterangan',1000000,0,'2006-01-02-15-04-6b67684f-64cc-433e-8557-c396fe39a057.jpg',1000000,'49201e0c-2c11-4147-b3b6-4dd289205c98'),('42719ea3-176f-49f3-8cd3-3f97fa5640dd','2025-05-21 07:32:00','rewrewr',1000000,0,'no data',2000000,'ea55e279-d7c6-494e-97ac-cf600e9c210d'),('ba77b216-b77f-45af-9ae7-fc576b5c0429','2025-05-21 07:34:00','test',0,10000,'no data',1990000,'282bd4a7-2a9b-43a3-b62c-6b463e13701b');
 /*!40000 ALTER TABLE `laporan_keuangan` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -126,7 +127,7 @@ CREATE TABLE `pemasukan` (
 
 LOCK TABLES `pemasukan` WRITE;
 /*!40000 ALTER TABLE `pemasukan` DISABLE KEYS */;
-INSERT INTO `pemasukan` VALUES ('a9accb33-978d-4e2b-b635-c386fb880068','2025-05-03 20:30:00','Dana Desa','vghfg',100000,'','e7327991-89f6-4a4f-aa22-bf5f244f7b5d');
+INSERT INTO `pemasukan` VALUES ('adf8e59a-8daa-47f5-92b2-ad84d2b3f0f3','2006-01-02 07:04:00','kategori','keterangan',1000000,'2006-01-02-15-04-6b67684f-64cc-433e-8557-c396fe39a057.jpg','49201e0c-2c11-4147-b3b6-4dd289205c98'),('e0b71be9-ce92-4555-b901-495a01ea274a','2025-05-21 07:32:00','Dana Desa','rewrewr',1000000,'','ea55e279-d7c6-494e-97ac-cf600e9c210d');
 /*!40000 ALTER TABLE `pemasukan` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -156,7 +157,7 @@ CREATE TABLE `pengeluaran` (
 
 LOCK TABLES `pengeluaran` WRITE;
 /*!40000 ALTER TABLE `pengeluaran` DISABLE KEYS */;
-INSERT INTO `pengeluaran` VALUES ('1f0b9dad-0418-4f72-8c03-339b3d54373f','2025-05-03 20:31:00','2025-05-03-20-31-fe42aa1b-24fe-44d9-a5ca-21704f902662.jpeg',50000,'fgh','62694789-0edc-4c23-8bab-e5f2a2c408b8');
+INSERT INTO `pengeluaran` VALUES ('b2cffac1-8d79-4205-9b28-f9e8c5e8698f','2025-05-21 07:34:00','2025-05-21-15-34-fecf2952-6903-4367-a78e-51bf50785e62.jpeg',10000,'test','282bd4a7-2a9b-43a3-b62c-6b463e13701b');
 /*!40000 ALTER TABLE `pengeluaran` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -169,4 +170,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2025-05-03 21:47:45
+-- Dump completed on 2025-05-23 17:09:30
