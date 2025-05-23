@@ -31,7 +31,7 @@ func (s *pemasukanControllerImpl) AddPemasukan(w http.ResponseWriter, r *http.Re
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfull added")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil ditambahkan")
 }
 
 // UpdatePemasukan implements PemasukanController.
@@ -45,7 +45,7 @@ func (s *pemasukanControllerImpl) UpdatePemasukan(w http.ResponseWriter, r *http
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfull updated")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil diperbarui")
 }
 
 // GetPemasukan implements PemasukanController.
@@ -79,7 +79,7 @@ func (s *pemasukanControllerImpl) GetPemasukan(w http.ResponseWriter, r *http.Re
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfully get pemasukan with pagination")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan pemasukan dengan pagination")
 }
 
 // DeletePemasukan implements PemasukanController.
@@ -90,7 +90,7 @@ func (s *pemasukanControllerImpl) DeletePemasukan(w http.ResponseWriter, r *http
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfull delete")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil menghapus")
 }
 
 // GetById implements PemasukanController.
@@ -101,5 +101,5 @@ func (s *pemasukanControllerImpl) GetById(w http.ResponseWriter, r *http.Request
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfull get")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan")
 }

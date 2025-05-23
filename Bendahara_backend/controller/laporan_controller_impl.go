@@ -27,7 +27,7 @@ func (l *laporanKeuanganControllerImpl) GetAllLaporan(w http.ResponseWriter, r *
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfull get all")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan semua data")
 }
 
 // GetLastBalance implements LaporanKeuanganController.
@@ -41,7 +41,7 @@ func (l *laporanKeuanganControllerImpl) GetLastBalance(w http.ResponseWriter, r 
 		Code: http.StatusOK,
 		Status: http.StatusText(http.StatusOK),
 		Saldo: saldo,
-		Message: "successfull get last balance",
+		Message: "berhasil mendapatkan saldo terakhir",
 	}
 	
 	util.WriteToResponseBody(w, response)
@@ -59,7 +59,7 @@ func (l *laporanKeuanganControllerImpl) GetTotalExpenditure(w http.ResponseWrite
 		Code: http.StatusOK,
 		Status: http.StatusText(http.StatusOK),
 		Saldo: int64(totalPengeluaran),
-		Message: "successfull get total expenditure",
+		Message: "berhasil mendapatkan total pengeluaran",
 	}
 
 	util.WriteToResponseBody(w, response)
@@ -77,7 +77,7 @@ func (l *laporanKeuanganControllerImpl) GetTotalIncome(w http.ResponseWriter, r 
 		Code: http.StatusOK,
 		Status: http.StatusText(http.StatusOK),
 		Saldo: int64(totalPemasukan),
-		Message: "successfull get total income",
+		Message: "berhasil mendapatkan total pemasukan",
 	}
 
 	util.WriteToResponseBody(w, response)
@@ -90,7 +90,7 @@ func (l *laporanKeuanganControllerImpl) GetLaporanByDateRange(w http.ResponseWri
 
 	// Validasi parameter
 	if startDate == "" || endDate == "" {
-		helper.WriteJSONError(w, http.StatusBadRequest, "startDate and endDate are required")
+		helper.WriteJSONError(w, http.StatusBadRequest, "tanggal mulai dan tanggal akhir diperlukan")
 		return
 	}
 
@@ -102,5 +102,5 @@ func (l *laporanKeuanganControllerImpl) GetLaporanByDateRange(w http.ResponseWri
 	}
 
 	// Kirim respons JSON
-	helper.WriteJSONSuccess(w, responseDTO, "successfully get laporan by date range")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan laporan berdasarkan rentang tanggal")
 }

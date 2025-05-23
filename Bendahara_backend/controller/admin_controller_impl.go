@@ -30,7 +30,7 @@ func (a adminControllerImpl) SignUp(w http.ResponseWriter, r *http.Request, _ ht
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "registration successfully")
+	helper.WriteJSONSuccess(w, responseDTO, "pendaftaran berhasil")
 }
 
 // SignIn implements AdminController.
@@ -43,7 +43,7 @@ func (a adminControllerImpl) SignIn(w http.ResponseWriter, r *http.Request, _ ht
 		helper.WriteJSONError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "login successfully")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil masuk")
 }
 
 // FindByNik implements AdminController.
@@ -54,5 +54,5 @@ func (a adminControllerImpl) FindByNik(w http.ResponseWriter, r *http.Request, p
 		helper.WriteJSONError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "get admin successfully")
+	helper.WriteJSONSuccess(w, responseDTO, "dapatkan admin berhasil")
 }

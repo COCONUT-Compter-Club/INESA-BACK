@@ -48,13 +48,13 @@ func verifyPassword(storedHash, password string) bool {
 func (a adminServiceImpl) SignUp(ctx context.Context, adminRequest dto.AdminRequest) (dto.AdminResponse, error) {
 	tx, err := a.DB.Begin()
 	if err != nil {
-		return dto.AdminResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.AdminResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer tx.Commit()
 
 	hassedPass, err := hashPassword(adminRequest.Password)
 	if err != nil {
-		return dto.AdminResponse{}, fmt.Errorf("failed to hash password: %v", err)
+		return dto.AdminResponse{}, fmt.Errorf("gagal membuat kata sandi hash: %v", err)
 	}
 
 	admin := model.Admin{
@@ -67,7 +67,7 @@ func (a adminServiceImpl) SignUp(ctx context.Context, adminRequest dto.AdminRequ
 
 	createAdmin, err := a.AdminRepo.SignUp(ctx, tx, admin)
 	if err != nil {
-		return dto.AdminResponse{}, fmt.Errorf("failed to register admin: %v", err)
+		return dto.AdminResponse{}, fmt.Errorf("gagal melakukan pendaftaran admin: %v", err)
 	}
 
 	return util.ConvertAdminToResponseDTO(createAdmin), nil
@@ -102,28 +102,28 @@ func (a adminServiceImpl) GenerateJWT(username string) (string, error) {
 // SignIn implements AdminService.
 func (a adminServiceImpl) SignIn(ctx context.Context, loginRequest dto.LoginRequest) (string, error) {
 	if loginRequest.Nik == "" || loginRequest.Password == "" {
-		return "", fmt.Errorf("nik or password can't be empty")
+		return "", fmt.Errorf("nik atau kata sandi tidak boleh kosong")
 	}
 	tx, err := a.DB.Begin()
 	if err != nil {
-		return "", fmt.Errorf("failed to start transaction: %v", err)
+		return "", fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer tx.Commit()
 
 	admin, err := a.AdminRepo.FindByNik(ctx, tx, loginRequest.Nik)
 	if err != nil {
-		return "", fmt.Errorf("invalid nik or password: %v", err)
+		return "", fmt.Errorf("nik atau kata sandi tidak valid: %v", err)
 	}
 
 	if verifyPassword(admin.Password, loginRequest.Password) {
 		fmt.Println("Login berhasil!")
 	} else {
-		return "", fmt.Errorf("invalid nik or password")
+		return "", fmt.Errorf("nik atau kata sandi tidak valid")
 	}
 
 	token, err := a.GenerateJWT(loginRequest.Nik)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate token: %v", err)
+		return "", fmt.Errorf("gagal menghasilkan token: %v", err)
 		// panic(err)
 	}
 
@@ -134,13 +134,13 @@ func (a adminServiceImpl) SignIn(ctx context.Context, loginRequest dto.LoginRequ
 func (a adminServiceImpl) GetAdminByNik(ctx context.Context, nik string) (dto.AdminResponse, error) {
 	tx, err := a.DB.Begin()
 	if err != nil {
-		return dto.AdminResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.AdminResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer util.CommitOrRollBack(tx)
 
 	admin, err := a.AdminRepo.FindByNik(ctx, tx, nik)
 	if err != nil {
-		return dto.AdminResponse{}, fmt.Errorf("admin with nik %s not found: %v", nik, err)
+		return dto.AdminResponse{}, fmt.Errorf("admin dengan nik %s tidak ditemukan: %v", nik, err)
 	}
 
 	return util.ConvertAdminToResponseDTO(admin), nil

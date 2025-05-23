@@ -35,14 +35,14 @@ func (s *pengeluaranServiceImpl) AddPengeluaran(ctx context.Context, r *http.Req
 	// Parse form data
 	err := r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to parse form: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menguraikan formulir: %v", err)
 	}
 
 	// Ambil nilai tanggal dan waktu dari form dan parse ke time.Time
 	tanggalWaktuStr := r.FormValue("tanggal") // Contoh format: "2006-01-02T15:04"
 	tanggalWaktu, err := time.Parse("2006-01-02 15:04", tanggalWaktuStr)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("invalid date or time format: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("format tanggal atau waktu tidak valid: %v", err)
 	}
 
 	// Isi pengeluaranRequest dengan data yang diambil dari form
@@ -54,7 +54,7 @@ func (s *pengeluaranServiceImpl) AddPengeluaran(ctx context.Context, r *http.Req
 	// Ambil file dari form
 	file, handler, err := r.FormFile("nota")
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to read file: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal membaca file: %v", err)
 	}
 	defer file.Close()
 
@@ -75,14 +75,14 @@ func (s *pengeluaranServiceImpl) AddPengeluaran(ctx context.Context, r *http.Req
 	filePath := filepath.Join(uploadDir, handler.Filename)
 	out, err := os.Create(filePath)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to create file: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal membuat file: %v", err)
 	}
 	defer out.Close()
 
 	// Salin file yang diunggah ke file yang baru dibuat
 	_, err = io.Copy(out, file)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to copy file: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menyalin file: %v", err)
 	}
 
 	// Simpan nama file ke dalam request
@@ -91,25 +91,25 @@ func (s *pengeluaranServiceImpl) AddPengeluaran(ctx context.Context, r *http.Req
 	// Konversi nominal dari string ke integer
 	nominal, err := (strconv.Atoi(r.FormValue("nominal")))
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("nominal must be a valid number: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("nominal harus berupa angka yang valid: %v", err)
 	}
 	pengeluaranRequest.Nominal = uint64(nominal)
 
 	// Validasi input
 	if pengeluaranRequest.Tanggal == "" || pengeluaranRequest.Nota == "" || pengeluaranRequest.Nominal == 0 {
-		return dto.PengeluaranResponse{}, fmt.Errorf("date, note, or nominal can't be empty")
+		return dto.PengeluaranResponse{}, fmt.Errorf("tanggal, catatan, atau nominal tidak boleh kosong")
 	}
 
 	// Parsing tanggal dari string ke time.Time
 	tanggal, err := time.Parse("2006-01-02 15:04", pengeluaranRequest.Tanggal)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("invalid date format, expected 'YYYY-MM-DD HH:MM:SS'")
+		return dto.PengeluaranResponse{}, fmt.Errorf("format tanggal tidak valid, yang diharapkan 'YYYY-MM-DD HH:MM:SS'")
 	}
 
 	// Mulai transaksi database
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer util.CommitOrRollBack(tx)
 
@@ -125,7 +125,7 @@ func (s *pengeluaranServiceImpl) AddPengeluaran(ctx context.Context, r *http.Req
 	// Tambahkan pengeluaran ke database
 	addPengeluaran, err := s.PengeluaranRepo.AddPengeluaran(ctx, tx, pengeluaran)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to add expenses: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menambahkan pengeluaran: %v", err)
 	}
 
 	// Kembalikan respons
@@ -137,14 +137,14 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 	// Parse form data
 	err := r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to parse form: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menguraikan formulir: %v", err)
 	}
 
 	// Ambil nilai tanggal dan waktu dari form dan parse ke time.Time
 	tanggalWaktuStr := r.FormValue("tanggal") // Contoh format: "2006-01-02T15:04"
 	tanggalWaktu, err := time.Parse("2006-01-02 15:04", tanggalWaktuStr)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("invalid date or time format: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("format tanggal atau waktu tidak valid: %v", err)
 	}
 
 	// Isi pengeluaranRequest dengan data yang diambil dari form
@@ -156,14 +156,14 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 	// Mulai transaksi database
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer util.CommitOrRollBack(tx)
 
 	// Cari pengeluaran berdasarkan ID
 	pengeluaran, err := s.PengeluaranRepo.FindById(ctx, tx, id)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to find pengeluaran: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menemukan pengeluaran: %v", err)
 	}
 
 	// Jika file nota diunggah, simpan file baru dan hapus file lama
@@ -188,14 +188,14 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 		filePath := filepath.Join(uploadDir, handler.Filename)
 		out, err := os.Create(filePath)
 		if err != nil {
-			return dto.PengeluaranResponse{}, fmt.Errorf("failed to create file: %v", err)
+			return dto.PengeluaranResponse{}, fmt.Errorf("gagal membuat file: %v", err)
 		}
 		defer out.Close()
 
 		// Salin file yang diunggah ke file yang baru dibuat
 		_, err = io.Copy(out, file)
 		if err != nil {
-			return dto.PengeluaranResponse{}, fmt.Errorf("failed to copy file: %v", err)
+			return dto.PengeluaranResponse{}, fmt.Errorf("gagal menyalin file: %v", err)
 		}
 
 		// Hapus file nota lama jika ada
@@ -216,19 +216,19 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 	// Konversi nominal dari string ke integer
 	nominal, err := strconv.Atoi(r.FormValue("nominal"))
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("nominal must be a valid number: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("nominal harus berupa angka yang valid: %v", err)
 	}
 	pengeluaranRequest.Nominal = uint64(nominal)
 
 	// Validasi input
 	if pengeluaranRequest.Tanggal == "" || pengeluaranRequest.Nota == "" || pengeluaranRequest.Nominal == 0 {
-		return dto.PengeluaranResponse{}, fmt.Errorf("date, note, or nominal can't be empty")
+		return dto.PengeluaranResponse{}, fmt.Errorf("tanggal, catatan, atau nominal tidak boleh kosong")
 	}
 
 	// Parsing tanggal dari string ke time.Time
 	tanggal, err := time.Parse("2006-01-02 15:04", pengeluaranRequest.Tanggal)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("invalid date format, expected 'YYYY-MM-DD HH:MM:SS'")
+		return dto.PengeluaranResponse{}, fmt.Errorf("format tanggal tidak valid, yang diharapkan 'YYYY-MM-DD HH:MM:SS'")
 	}
 
 	// Update data pengeluaran
@@ -240,7 +240,7 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 	// Simpan perubahan ke database
 	updatePengeluaran, err := s.PengeluaranRepo.UpdatePengeluaran(ctx, tx, pengeluaran, id)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to update expenses: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal memperbarui pengeluaran: %v", err)
 	}
 
 	// Kembalikan respons
@@ -251,7 +251,7 @@ func (s *pengeluaranServiceImpl) UpdatePengeluaran(ctx context.Context, r *http.
 func (s *pengeluaranServiceImpl) GetPengeluaran(ctx context.Context, page int, pageSize int) (dto.PengeluaranPaginationResponse, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer util.CommitOrRollBack(tx)
 
@@ -265,7 +265,7 @@ func (s *pengeluaranServiceImpl) GetPengeluaran(ctx context.Context, page int, p
 
 	pengeluaran, total, err := s.PengeluaranRepo.GetPengeluaran(ctx, tx, page, pageSize)
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("failed to get all expenses: %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("gagal mendapatkan semua pengeluaran: %v", err)
 	}
 
 	// Hitung total halaman
@@ -289,18 +289,18 @@ func (s *pengeluaranServiceImpl) GetPengeluaran(ctx context.Context, page int, p
 func (s *pengeluaranServiceImpl) DeletePengeluaran(ctx context.Context, id string) (dto.PengeluaranResponse, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer tx.Commit()
 
 	pengeluaran, err := s.PengeluaranRepo.FindById(ctx, tx, id)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("expenses not found: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("pengeluaran tidak ditemukan: %v", err)
 	}
 
 	pengeluaran, err = s.PengeluaranRepo.DeletePengeluaran(ctx, tx, pengeluaran)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to delete expenses: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal menghapus pengeluaran: %v", err)
 	}
 
 	return util.ConvertPengeluaranToResponseDTO(pengeluaran), nil
@@ -310,13 +310,13 @@ func (s *pengeluaranServiceImpl) DeletePengeluaran(ctx context.Context, id strin
 func (s *pengeluaranServiceImpl) GetById(ctx context.Context, id string) (dto.PengeluaranResponse, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer tx.Commit()
 
 	pengeluaran, err := s.PengeluaranRepo.FindById(ctx, tx, id)
 	if err != nil {
-		return dto.PengeluaranResponse{}, fmt.Errorf("expenses not found: %v", err)
+		return dto.PengeluaranResponse{}, fmt.Errorf("pengeluaran tidak ditemukan: %v", err)
 	}
 
 	return util.ConvertPengeluaranToResponseDTO(pengeluaran), nil
@@ -326,7 +326,7 @@ func (s *pengeluaranServiceImpl) GetById(ctx context.Context, id string) (dto.Pe
 func (s *pengeluaranServiceImpl) GetPengeluaranByDateRange(ctx context.Context, startDate, endDate string, page int, pageSize int) (dto.PengeluaranPaginationResponse, error) {
 	tx, err := s.DB.Begin()
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("failed to start transaction: %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("gagal memulai transaksi: %v", err)
 	}
 	defer util.CommitOrRollBack(tx)
 
@@ -340,22 +340,22 @@ func (s *pengeluaranServiceImpl) GetPengeluaranByDateRange(ctx context.Context, 
 
 	// Validasi tanggal
 	if startDate == "" || endDate == "" {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("start_date and end_date are required")
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("tanggal mulai dan tanggal akhir diperlukan")
 	}
 
 	// Parse tanggal untuk memastikan format valid
 	_, err = time.Parse("2006-01-02", startDate)
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("invalid start_date format, expected 'YYYY-MM-DD': %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("format tanggal mulai tidak valid, diharapkan 'YYYY-MM-DD': %v", err)
 	}
 	_, err = time.Parse("2006-01-02", endDate)
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("invalid end_date format, expected 'YYYY-MM-DD': %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("format tanggal akhir tidak valid, diharapkan 'YYYY-MM-DD': %v", err)
 	}
 
 	pengeluaran, total, err := s.PengeluaranRepo.GetPengeluaranByDateRange(ctx, tx, startDate, endDate, page, pageSize)
 	if err != nil {
-		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("failed to get pengeluaran by date range: %v", err)
+		return dto.PengeluaranPaginationResponse{}, fmt.Errorf("gagal mendapatkan pengeluaran berdasarkan rentang tanggal: %v", err)
 	}
 
 	// Hitung total halaman

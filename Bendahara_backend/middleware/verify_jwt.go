@@ -22,13 +22,13 @@ func VerifyJWT(next httprouter.Handle) httprouter.Handle {
 	return func(w http.ResponseWriter, r *http.Request, ps httprouter.Params) {
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			helper.WriteJSONError(w, http.StatusUnauthorized, "missing authorization header")
+			helper.WriteJSONError(w, http.StatusUnauthorized, "header otorisasi tidak ditemukan")
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		if tokenString == authHeader {
-			helper.WriteJSONError(w, http.StatusUnauthorized, "invalid token format")
+			helper.WriteJSONError(w, http.StatusUnauthorized, "format token tidak valid")
 			return
 		}
 
@@ -38,7 +38,7 @@ func VerifyJWT(next httprouter.Handle) httprouter.Handle {
 		})
 
 		if err != nil || !token.Valid {
-			helper.WriteJSONError(w, http.StatusUnauthorized, "invalid or expired token")
+			helper.WriteJSONError(w, http.StatusUnauthorized, "token tidak valid atau kadaluarsa")
 			return
 		}
 

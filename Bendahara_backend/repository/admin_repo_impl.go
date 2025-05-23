@@ -45,6 +45,6 @@ func (a adminRepoImpl) FindByNik(ctx context.Context, tx *sql.Tx, nik string) (m
 		}
 		return admin, nil
 	} else {
-		return admin, errors.New("nik user not found")
+		return admin, errors.New("nik user tidak ditemukan")
 	}
 }

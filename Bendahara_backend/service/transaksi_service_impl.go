@@ -26,13 +26,13 @@ func NewTransactionService(transactionRepo repository.TransaksiRepo, db *sql.DB)
 func (t *transactionServiceImpl) GetAllTransaction(ctx context.Context) ([]dto.TransactionResponse, error) {
 	tx, err := t.DB.Begin()
 	if err != nil {
-		return []dto.TransactionResponse{}, fmt.Errorf("failed to start transaction")
+		return []dto.TransactionResponse{}, fmt.Errorf("gagal memulai transaksi")
 	}
 	defer util.CommitOrRollBack(tx)
 
 	transaction, err := t.TransactionRepo.GetAllTransaction(ctx, tx)
 	if err != nil {
-		return []dto.TransactionResponse{}, fmt.Errorf("failed to get all transaction")
+		return []dto.TransactionResponse{}, fmt.Errorf("gagal mendapatkan semua transaksi")
 	}
 
 	return util.ConvertTransactionToListResponseDTO(transaction), nil
@@ -48,7 +48,7 @@ func (t *transactionServiceImpl) GetLastTransaction(ctx context.Context) ([]dto.
 
 	transaction, err := t.TransactionRepo.GetLastTransaction(ctx, tx)
 	if err != nil {
-		return []dto.TransactionResponse{}, fmt.Errorf("failed to get last transaction")
+		return []dto.TransactionResponse{}, fmt.Errorf("gagal mendapatkan transaksi terakhir")
 	}
 
 	return util.ConvertTransactionToListResponseDTO(transaction), nil

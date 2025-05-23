@@ -21,7 +21,7 @@ func (t *transactionRepoImpl) GetAllTransaction(ctx context.Context, tx *sql.Tx)
 	query := "SELECT id_transaksi, tanggal, keterangan, jenis_transaksi, nominal FROM history_transaksi ORDER BY tanggal DESC"
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch transactions: %v", err)
+		return nil, fmt.Errorf("gagal mengambil transaksi: %v", err)
 	}
 	defer rows.Close()
 
@@ -33,13 +33,13 @@ func (t *transactionRepoImpl) GetAllTransaction(ctx context.Context, tx *sql.Tx)
 		// Scan ke variabel sementara (tanggalStr)
 		err := rows.Scan(&transaction.Id, &tanggalStr, &transaction.Keterangan, &transaction.JenisTransaksi, &transaction.Nominal)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan transaction: %v", err)
+			return nil, fmt.Errorf("gagal memindai transaksi: %v", err)
 		}
 
 		// Parsing string ke time.Time
 		transaction.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr) // Sesuaikan format dengan data di database
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse tanggal: %v", err)
+			return nil, fmt.Errorf("gagal menguraikan tanggal: %v", err)
 		}
 
 		transactions = append(transactions, transaction)
@@ -47,7 +47,7 @@ func (t *transactionRepoImpl) GetAllTransaction(ctx context.Context, tx *sql.Tx)
 
 	// Periksa error setelah iterasi
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error after iterating rows: %v", err)
+		return nil, fmt.Errorf("kesalahan setelah melakukan iterasi baris: %v", err)
 	}
 
 	return transactions, nil
@@ -58,7 +58,7 @@ func (t *transactionRepoImpl) GetLastTransaction(ctx context.Context, tx *sql.Tx
 	query := "SELECT id_transaksi, tanggal, keterangan, jenis_transaksi, nominal FROM history_transaksi ORDER BY tanggal DESC LIMIT 5"
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch last transactions: %v", err)
+		return nil, fmt.Errorf("gagal mengambil transaksi terakhir: %v", err)
 	}
 	defer rows.Close()
 
@@ -70,13 +70,13 @@ func (t *transactionRepoImpl) GetLastTransaction(ctx context.Context, tx *sql.Tx
 		// Scan ke variabel sementara (tanggalStr)
 		err := rows.Scan(&transaction.Id, &tanggalStr, &transaction.Keterangan, &transaction.JenisTransaksi, &transaction.Nominal)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan transaction: %v", err)
+			return nil, fmt.Errorf("gagal memindai transaksi: %v", err)
 		}
 
 		// Parsing string ke time.Time
 		transaction.Tanggal, err = time.Parse("2006-01-02 15:04:05", tanggalStr) // Sesuaikan format dengan data di database
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse tanggal: %v", err)
+			return nil, fmt.Errorf("gagal mengurai tanggal: %v", err)
 		}
 
 		transactions = append(transactions, transaction)
@@ -84,7 +84,7 @@ func (t *transactionRepoImpl) GetLastTransaction(ctx context.Context, tx *sql.Tx
 
 	// Periksa error setelah iterasi
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error after iterating rows: %v", err)
+		return nil, fmt.Errorf("kesalahan setelah melakukan iterasi baris: %v", err)
 	}
 
 	return transactions, nil

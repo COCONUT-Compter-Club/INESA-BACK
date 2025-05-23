@@ -26,7 +26,7 @@ func (l *laporanKeuanganRepoImpl) GetAllLaporan(ctx context.Context, tx *sql.Tx)
 
 	rows, err := tx.QueryContext(ctx, query)
 	if err != nil {
-		return laporans, err
+		return laporans, fmt.Errorf("gagal mengambil data laporan keuangan: %v", err)
 	}
 	defer rows.Close()
 
@@ -45,7 +45,7 @@ func (l *laporanKeuanganRepoImpl) GetAllLaporan(ctx context.Context, tx *sql.Tx)
 			&laporan.Saldo,
 		)
 		if err != nil {
-			return laporans, err
+			return laporans, fmt.Errorf("gagal memindai data laporan keuangan: %v", err)
 		}
 
 		// Convert tanggal to time.Time
@@ -55,18 +55,18 @@ func (l *laporanKeuanganRepoImpl) GetAllLaporan(ctx context.Context, tx *sql.Tx)
 		case []byte:
 			parsed, perr := time.Parse("2006-01-02 15:04:05", string(v))
 			if perr != nil {
-				return laporans, fmt.Errorf("failed to parse tanggal: %v", perr)
+				return laporans, fmt.Errorf("gagal mem-parsing tanggal: %v", perr)
 			}
 			laporan.Tanggal = parsed
 		default:
-			return laporans, fmt.Errorf("unsupported type for tanggal: %T", v)
+			return laporans, fmt.Errorf("tipe tanggal tidak didukung: %T", v)
 		}
 
 		laporans = append(laporans, laporan)
 	}
 
 	if err = rows.Err(); err != nil {
-		return laporans, err
+		return laporans, fmt.Errorf("kesalahan setelah mengiterasi baris: %v", err)
 	}
 
 	return laporans, nil
@@ -79,7 +79,7 @@ func (l *laporanKeuanganRepoImpl) GetLastBalance(ctx context.Context, tx *sql.Tx
 	err := tx.QueryRowContext(ctx, query).Scan(&saldo)
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
-		return 0, fmt.Errorf("failed to fetch previous saldo: %v", err)
+		return 0, fmt.Errorf("gagal mengambil saldo sebelumnya: %v", err)
 	}
 	return saldo, nil
 }
@@ -95,7 +95,7 @@ func (l *laporanKeuanganRepoImpl) GetLaporanByDateRange(ctx context.Context, tx 
 
 	rows, err := tx.QueryContext(ctx, query, startDate, endDate)
 	if err != nil {
-		return laporans, fmt.Errorf("failed to fetch laporan by date range: %v", err)
+		return laporans, fmt.Errorf("gagal mengambil data laporan keuangan berdasarkan rentang tanggal: %v", err)
 	}
 	defer rows.Close()
 
@@ -113,13 +113,13 @@ func (l *laporanKeuanganRepoImpl) GetLaporanByDateRange(ctx context.Context, tx 
 			&laporan.Saldo,
 		)
 		if err != nil {
-			return laporans, fmt.Errorf("failed to scan laporan: %v", err)
+			return laporans, fmt.Errorf("gagal memindai data laporan keuangan: %v", err)
 		}
 
 		// Parse tanggal string
 		parsed, perr := time.Parse("2006-01-02 15:04:05", tanggalStr)
 		if perr != nil {
-			return laporans, fmt.Errorf("failed to parse tanggal: %v", perr)
+			return laporans, fmt.Errorf("gagal mem-parsing tanggal: %v", perr)
 		}
 		laporan.Tanggal = parsed
 
@@ -127,7 +127,7 @@ func (l *laporanKeuanganRepoImpl) GetLaporanByDateRange(ctx context.Context, tx 
 	}
 
 	if err = rows.Err(); err != nil {
-		return laporans, fmt.Errorf("error after iterating rows: %v", err)
+		return laporans, fmt.Errorf("kesalahan setelah mengiterasi baris: %v", err)
 	}
 
 	return laporans, nil

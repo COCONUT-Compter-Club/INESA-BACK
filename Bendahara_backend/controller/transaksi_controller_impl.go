@@ -25,7 +25,7 @@ func (t *transactionControllerImpl) GetAllTransaction(w http.ResponseWriter, r *
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfully get all transaction")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan semua transaksi")
 }
 
 // GetLastTransaction implements TransactionController.
@@ -35,5 +35,5 @@ func (t *transactionControllerImpl) GetLastTransaction(w http.ResponseWriter, r 
 		helper.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	helper.WriteJSONSuccess(w, responseDTO, "successfully get transaction")
+	helper.WriteJSONSuccess(w, responseDTO, "berhasil mendapatkan transaksi")
 }
