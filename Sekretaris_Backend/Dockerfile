@@ -1,5 +1,5 @@
 # Gunakan image base Go versi terbaru
-FROM golang:1.23-alpine
+FROM golang:latest
 
 # Buat direktori kerja di dalam container
 WORKDIR /app
@@ -21,3 +21,5 @@ EXPOSE 8088
 
 # Perintah untuk menjalankan aplikasi
 CMD ["./main"]
+
+

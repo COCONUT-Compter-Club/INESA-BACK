@@ -58,6 +58,7 @@ func (r *PermohonanSuratRepository) GetPermohonanSurat() ([]model.PermohonanSura
                nama_ayah, nama_ibu, tgl_kematian, penyebab_kematian, ditujukan, status,
                created_at, updated_at
         FROM permohonansurat
+		ORDER BY created_at DESC
     `
 	rows, err := r.db.Query(query)
 	if err != nil {
