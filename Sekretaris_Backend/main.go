@@ -58,8 +58,8 @@ func main() {
 	router.HandleOPTIONS = true 
 
 	// Serve static files
-	router.ServeFiles("static/*filepath", http.Dir("static"))
-	router.ServeFiles("uploads/*filepath", http.Dir("uploads"))
+	router.ServeFiles("/static/*filepath", http.Dir("static"))
+	router.ServeFiles("/uploads/*filepath", http.Dir("uploads"))
 
 	// Permohonan Surat Routes
 	router.POST("/api/sekretaris/permohonansurat", permohonanSuratController.AddPermohonanSurat)
