@@ -87,8 +87,6 @@ func main() {
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{
 			"http://localhost:5800",
-			"http://192.168.1.7:5800",
-			"http://192.168.1.85:5800",
 		},
 		 // Tambah semua kemungkinan origin
 		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
