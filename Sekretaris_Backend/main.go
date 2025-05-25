@@ -58,30 +58,30 @@ func main() {
 	router.HandleOPTIONS = true 
 
 	// Serve static files
-	router.ServeFiles("/static/*filepath", http.Dir("static"))
-	router.ServeFiles("/uploads/*filepath", http.Dir("uploads"))
+	router.ServeFiles("sekretaris/static/*filepath", http.Dir("static"))
+	router.ServeFiles("sekretaris/uploads/*filepath", http.Dir("uploads"))
 
 	// Permohonan Surat Routes
-	router.POST("/api/permohonansurat", permohonanSuratController.AddPermohonanSurat)
-	router.GET("/api/permohonansurat", permohonanSuratController.GetPermohonanSurat)
-	router.GET("/api/permohonansurat/get/:id", permohonanSuratController.GetPermohonanSuratByID)
-	router.PUT("/api/permohonansurat/update/:id", permohonanSuratController.UpdatePermohonanSuratByID)
-	router.DELETE("/api/permohonansurat/delete/:id", permohonanSuratController.DeletePermohonanSurat)
-	router.PATCH("/api/permohonansurat/patch/:id", permohonanSuratController.UpdateStatus)
+	router.POST("/api/sekretaris/permohonansurat", permohonanSuratController.AddPermohonanSurat)
+	router.GET("/api/sekretaris/permohonansurat", permohonanSuratController.GetPermohonanSurat)
+	router.GET("/api/sekretaris/permohonansurat/get/:id", permohonanSuratController.GetPermohonanSuratByID)
+	router.PUT("/api/sekretaris/permohonansurat/update/:id", permohonanSuratController.UpdatePermohonanSuratByID)
+	router.DELETE("/api/sekretaris/permohonansurat/delete/:id", permohonanSuratController.DeletePermohonanSurat)
+	router.PATCH("/api/sekretaris/permohonansurat/patch/:id", permohonanSuratController.UpdateStatus)
 
 	// Surat Masuk Routes
-	router.POST("/api/suratmasuk", suratMasukController.AddSuratMasuk)
-	router.GET("/api/suratmasuk", suratMasukController.GetSuratMasuk)
-	router.GET("/api/suratmasuk/get/:id", suratMasukController.GetSuratById)
-	router.PUT("/api/suratmasuk/update/:id", suratMasukController.UpdateSuratMasukByID)
-	router.DELETE("/api/suratmasuk/delete/:id", suratMasukController.DeleteSuratMasuk)
+	router.POST("/api/sekretaris/suratmasuk", suratMasukController.AddSuratMasuk)
+	router.GET("/api/sekretaris/suratmasuk", suratMasukController.GetSuratMasuk)
+	router.GET("/api/sekretaris/suratmasuk/get/:id", suratMasukController.GetSuratById)
+	router.PUT("/api/sekretaris/suratmasuk/update/:id", suratMasukController.UpdateSuratMasukByID)
+	router.DELETE("/api/sekretaris/suratmasuk/delete/:id", suratMasukController.DeleteSuratMasuk)
 
 	// Surat Keluar Routes
-	router.POST("/api/suratkeluar", suratKeluarController.AddSuratKeluar)
-	router.GET("/api/suratkeluar", suratKeluarController.GetAllSuratKeluar)
-	router.GET("/api/suratkeluar/get/:id", suratKeluarController.GetSuratKeluarById)
-	router.PUT("/api/suratkeluar/update/:id", suratKeluarController.UpdateSuratKeluarByID)
-	router.DELETE("/api/suratkeluar/delete/:id", suratKeluarController.DeleteSuratKeluar)
+	router.POST("/api/sekretaris/suratkeluar", suratKeluarController.AddSuratKeluar)
+	router.GET("/api/sekretaris/suratkeluar", suratKeluarController.GetAllSuratKeluar)
+	router.GET("/api/sekretaris/suratkeluar/get/:id", suratKeluarController.GetSuratKeluarById)
+	router.PUT("/api/sekretaris/suratkeluar/update/:id", suratKeluarController.UpdateSuratKeluarByID)
+	router.DELETE("/api/sekretaris/suratkeluar/delete/:id", suratKeluarController.DeleteSuratKeluar)
 
 	// Enable CORS
 	c := cors.New(cors.Options{
